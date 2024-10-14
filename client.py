@@ -1,27 +1,31 @@
 import socket
+import threading
 
-# Definisi fungsi untuk client
-def run_client():
-    # Definisikan IP dan port server
-    server_ip = "192.168.18.40"
-    port = 8000
+def receive_message(client):
+    while True:
+        msg, addr = client.recvfrom(1024)
+        print(f"From {addr}: {msg.decode()}")        
 
-    # Buat objek socket UDP
+def send_message(client, server_ip, server_port):
+    while True:
+        msg = input("Masukkan pesan: ")
+        client.sendto(msg.encode(), (server_ip, server_port))
+
+def run_server():
+    server_ip = "172.20.10.5"
+    server_port = 8000
+    
     client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.bind((server_ip, server_port))
+    print(f"Client connected to {server_ip}:{server_port}")
 
+    receiver = threading.Thread(target=receive_message, args=(client,))
+    sender = threading.Thread(target=send_message, args=(client, server_ip, server_port))
 
-    # Buat pesan untuk dikirim
-    message = input()
+    receiver.start()
+    sender.start()
 
-    while message != "exit":
-        try:
-            # Kirim pesan ke server
-            client.sendto(message.encode(), (server_ip, port))
-            print(f"{message} sent to {server_ip}:{port}")
+    receiver.join()
+    sender.join()
 
-        except Exception as e:
-            print(f"Error: {e}")
-        message = input()
-
-# Jalankan client
-run_client()
+run_server()
