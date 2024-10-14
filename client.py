@@ -3,7 +3,7 @@ import socket
 # Definisi fungsi untuk client
 def run_client():
     # Definisikan IP dan port server
-    server_ip = "192.168.97.183"
+    server_ip = "192.168.18.40"
     port = 8000
 
     # Buat objek socket UDP

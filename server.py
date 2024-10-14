@@ -4,8 +4,9 @@ import socket
 # Definisi fungsi jalanin server wis
 def run_server():
     # Definisikan ajah
-    server_ip = "127.0.0.1"
+    server_ip = "192.168.18.40"
     port = 8000
+    clients = set()
 
     # Buat objek socket
     server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -17,8 +18,10 @@ def run_server():
 
     while True:
         # Menerima data dari klien
-        data, addr = server.recvfrom(1024)  # Buffer size is 1024 bytes
+        data, addr = server.recvfrom(1024)
+        clients.add(addr)  # Buffer size is 1024 bytes
         print(f"Received message: {data.decode()} from {addr}")
+        print(clients)
 
 
 run_server()
