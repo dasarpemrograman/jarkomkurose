@@ -1,7 +1,7 @@
 import socket
 
 def run_server():
-    server_ip = "172.20.10.5"
+    server_ip = "192.168.18.39"
     server_port = 8000
 
     server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -14,7 +14,7 @@ def run_server():
         if addr not in clients:
             clients.append(addr)
             print(f"New client: {addr}")
-        print(f"Received message from {addr}: {data}")
+        print(f"Received message from {addr}: {data.decode()}")
 
         for client in clients:
             if client != addr:
