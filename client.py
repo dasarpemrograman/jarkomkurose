@@ -1,40 +1,70 @@
 import socket
 import threading
+import tkinter as tk
+from tkinter import scrolledtext
 
-def receive_message(client):
-    while True:
-        try:
-            msg, addr = client.recvfrom(1024)
-            print(f"\nFrom {addr}: {msg.decode()}\n", end="")
-        except:
-            break        
+class ChatApp:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("UDP Chat Client")
 
-def send_message(client, server_ip, server_port):
-    while True:
-        msg = input("Masukkan pesan: ")
+        # Display for messages
+        self.chat_display = scrolledtext.ScrolledText(self.master, wrap=tk.WORD, height=15, width=50)
+        self.chat_display.pack(padx=10, pady=10)
+        self.chat_display.config(state=tk.DISABLED)
+
+        # Input field for sending messages
+        self.message_entry = tk.Entry(self.master, width=40)
+        self.message_entry.pack(padx=10, pady=5)
+        self.message_entry.bind("<Return>", self.send_message)
+
+        # Send button
+        self.send_button = tk.Button(self.master, text="Send", command=self.send_message)
+        self.send_button.pack(pady=5)
+
+        # Close button
+        self.close_button = tk.Button(self.master, text="Close", command=self.close_connection)
+        self.close_button.pack(pady=5)
+
+        self.server_ip = "192.168.18.39"
+        self.server_port = 8000
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.client.connect((self.server_ip, self.server_port))
+
+        # Start the receiving thread
+        self.receiver_thread = threading.Thread(target=self.receive_message)
+        self.receiver_thread.daemon = True
+        self.receiver_thread.start()
+
+    def receive_message(self):
+        while True:
+            try:
+                msg, addr = self.client.recvfrom(1024)
+                self.chat_display.config(state=tk.NORMAL)
+                self.chat_display.insert(tk.END, f"From {addr}: {msg.decode()}\n")
+                self.chat_display.config(state=tk.DISABLED)
+                self.chat_display.yview(tk.END)
+            except:
+                break
+
+    def send_message(self, event=None):
+        msg = self.message_entry.get()
+        if msg:
+            self.client.sendto(msg.encode(), (self.server_ip, self.server_port))
+            self.chat_display.config(state=tk.NORMAL)
+            self.chat_display.insert(tk.END, f"You: {msg}\n")
+            self.chat_display.config(state=tk.DISABLED)
+            self.chat_display.yview(tk.END)
+            self.message_entry.delete(0, tk.END)
         if msg == "exit":
-            client.close()
-            break
-        client.sendto(msg.encode(), (server_ip, server_port))
+            self.close_connection()
 
+    def close_connection(self):
+        self.client.close()
+        self.master.quit()
 
-def run_server():
-    server_ip = "192.168.18.39"
-    server_port = 8000
-    
-    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client.connect((server_ip, server_port))
-    print(f"Client connected to {server_ip}:{server_port}")
-
-    receiver = threading.Thread(target=receive_message, args=(client,))
-    sender = threading.Thread(target=send_message, args=(client, server_ip, server_port))
-
-    receiver.start()
-    sender.start()
-
-    receiver.join()
-    sender.join()
-
-    print("Closed!")
-
-run_server()
+# Main application
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ChatApp(root)
+    root.mainloop()
