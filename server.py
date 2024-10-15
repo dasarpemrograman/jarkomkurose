@@ -67,8 +67,8 @@ def run_server():
         except Exception as e:
             print(f"Unexpected error: {e}")
 
-if __name__ == "__main__":
-    try:
+
+try:
         run_server()
-    except KeyboardInterrupt:
+except KeyboardInterrupt:
         print("Server stopped.")
