@@ -1,68 +1,14 @@
 import socket
 
 BUFFER_SIZE = 1024
-PASSWORD = "securepassword"  # Set your desired password here
 
-def broadcast_message(server, message, clients, exclude_addr=None):
+def broadcast_message(server, message, clients, sender_addr=None):
     """
-    Broadcasts a message to all connected clients except the one excluded.
+    Broadcast a message to all connected clients except the sender.
     """
     for client in clients:
-        if client != exclude_addr:
+        if client != sender_addr:
             server.sendto(message.encode(), client)
-
-def handle_new_client(server, data, addr, clients, usernames):
-    """
-    Handles the authentication of a new client and adds them to the client list.
-    Broadcasts the connection if successful.
-    """
-    if ":" in data:
-        username, password = data.split(":", 1)
-
-        # Check if the password is correct
-        if password == PASSWORD:
-            clients.append(addr)
-            usernames.append(username)
-            msg = f"New client: {username} from {addr[0]} has joined the chat."
-            print(msg)
-
-            # Broadcast the new client connection to all other clients
-            broadcast_message(server, msg, clients, exclude_addr=addr)
-
-            # Confirm successful connection to the client
-            server.sendto(f"Welcome {username}!".encode(), addr)
-        else:
-            # Notify client of incorrect password
-            server.sendto("Invalid password.".encode(), addr)
-            print(f"Failed login attempt from {addr[0]}")
-    else:
-        # Reject connection if format is incorrect
-        server.sendto("Invalid format. Use username:password.".encode(), addr)
-
-def handle_client_message(server, data, addr, clients, usernames):
-    """
-    Handles a message sent by a connected client and broadcasts it to others.
-    """
-    if addr in clients:
-        idx = clients.index(addr)
-        msg = f"{usernames[idx]} says: {data}"
-        broadcast_message(server, msg, clients, exclude_addr=addr)
-
-def handle_client_disconnection(server, addr, clients, usernames):
-    """
-    Handles client disconnection and notifies others.
-    """
-    if addr in clients:
-        idx = clients.index(addr)
-        msg = f"Client {usernames[idx]} from {addr[0]} has left the chat."
-        print(msg)
-
-        # Broadcast the disconnection to all other clients
-        broadcast_message(server, msg, clients)
-
-        # Remove the client from the lists
-        clients.pop(idx)
-        usernames.pop(idx)
 
 def run_server():
     server_ip = "103.127.136.131"
@@ -88,15 +34,33 @@ def run_server():
 
             # Handle new client connections
             if addr not in clients:
-                handle_new_client(server, data, addr, clients, usernames)
+                clients.append(addr)
+                usernames.append(data)
+                print(f"New client: {data} from {addr[0]}")
+
+                # Broadcast the connection message to all other clients
+                connection_message = f"{data} has connected."
+                broadcast_message(server, connection_message, clients, addr)
 
             # Handle client disconnection
             elif data.lower() == "exit":
-                handle_client_disconnection(server, addr, clients, usernames)
+                idx = clients.index(addr)
+                disconnecting_user = usernames[idx]
+                print(f"Client {disconnecting_user} disconnected.")
+                
+                # Broadcast the disconnection message to all other clients
+                disconnection_message = f"{disconnecting_user} has disconnected."
+                broadcast_message(server, disconnection_message, clients, addr)
 
-            # Handle client messages
+                # Remove the client from the list
+                clients.pop(idx)
+                usernames.pop(idx)
+
+            # Broadcast regular messages
             else:
-                handle_client_message(server, data, addr, clients, usernames)
+                idx = clients.index(addr)
+                msg = f"{usernames[idx]} says: {data}"
+                broadcast_message(server, msg, clients, addr)
 
         except socket.error as e:
             print(f"Socket error: {e}")

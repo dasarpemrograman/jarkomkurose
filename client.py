@@ -1,124 +1,84 @@
 import socket
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import scrolledtext, simpledialog, messagebox
 
 BUFFER_SIZE = 1024
 
-class ChatClientGUI:
+class ClientGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("UDP Chat Client")
-        self.master.geometry("400x500")
+        
+        # Chat area
+        self.chat_area = scrolledtext.ScrolledText(master, wrap=tk.WORD)
+        self.chat_area.config(state=tk.DISABLED)
+        self.chat_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        self.client_socket = None
-        self.server_ip = "103.127.136.131"
-        self.server_port = 8000
-        self.username = ""
-        self.password = ""
+        # Entry area for typing messages
+        self.message_entry = tk.Entry(master)
+        self.message_entry.pack(padx=10, pady=10, fill=tk.X)
+        self.message_entry.bind("<Return>", self.send_message)
 
-        # Username input
-        self.label_username = tk.Label(master, text="Username:")
-        self.label_username.pack(pady=5)
-        self.entry_username = tk.Entry(master, width=30)
-        self.entry_username.pack(pady=5)
+        # Buttons for sending and exiting
+        self.send_button = tk.Button(master, text="Send", command=self.send_message)
+        self.send_button.pack(side=tk.LEFT, padx=10, pady=10)
 
-        # Password input
-        self.label_password = tk.Label(master, text="Password:")
-        self.label_password.pack(pady=5)
-        self.entry_password = tk.Entry(master, width=30, show="*")
-        self.entry_password.pack(pady=5)
+        self.exit_button = tk.Button(master, text="Exit", command=self.exit_chat)
+        self.exit_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
-        # Connect button
-        self.button_connect = tk.Button(master, text="Connect", command=self.connect_to_server)
-        self.button_connect.pack(pady=10)
-
-        # Chat window
-        self.chat_window = scrolledtext.ScrolledText(master, state='disabled', width=50, height=15)
-        self.chat_window.pack(padx=10, pady=10)
-
-        # Message entry
-        self.entry_message = tk.Entry(master, width=40)
-        self.entry_message.pack(side=tk.LEFT, padx=10, pady=5)
-        self.entry_message.config(state='disabled')
-
-        # Send button
-        self.button_send = tk.Button(master, text="Send", command=self.send_message, state='disabled')
-        self.button_send.pack(side=tk.LEFT, padx=10, pady=5)
-
-        # Disconnect button
-        self.button_disconnect = tk.Button(master, text="Disconnect", command=self.disconnect_from_server, state='disabled')
-        self.button_disconnect.pack(pady=10)
-
-        self.receive_thread = None
-
-    def connect_to_server(self):
-        # Get username and password
-        self.username = self.entry_username.get().strip()
-        self.password = self.entry_password.get().strip()
-
-        if not self.username or not self.password:
-            messagebox.showerror("Error", "Username and password cannot be empty.")
-            return
-
-        # Create socket and attempt connection
+        # Initialize the client socket
+        self.server_ip = "103.127.136.131"  # Replace with your server IP
+        self.server_port = 8000  # Replace with your server port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        auth_message = f"{self.username}:{self.password}"
-        self.client_socket.sendto(auth_message.encode(), (self.server_ip, self.server_port))
+        
+        # Get the username
+        self.username = simpledialog.askstring("Username", "Enter your username", parent=self.master)
+        if self.username:
+            self.client_socket.sendto(self.username.encode(), (self.server_ip, self.server_port))
 
-        # Wait for server's response
-        response, _ = self.client_socket.recvfrom(BUFFER_SIZE)
-        response = response.decode()
+        # Start a thread to listen for incoming messages
+        self.running = True
+        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread.start()
 
-        if response.startswith("Welcome"):
-            self.update_chat_window(response)
-            self.entry_message.config(state='normal')
-            self.button_send.config(state='normal')
-            self.button_disconnect.config(state='normal')
-            self.button_connect.config(state='disabled')
-
-            # Start receiving messages
-            self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
-            self.receive_thread.start()
-        else:
-            messagebox.showerror("Error", response)
-
-    def receive_messages(self):
-        while True:
+    def send_message(self, event=None):
+        message = self.message_entry.get()
+        if message:
             try:
-                message, _ = self.client_socket.recvfrom(BUFFER_SIZE)
-                self.update_chat_window(message.decode())
-            except socket.error:
+                # Send the message to the server
+                self.client_socket.sendto(message.encode(), (self.server_ip, self.server_port))
+                self.message_entry.delete(0, tk.END)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to send message: {e}")
+
+    def listen_for_messages(self):
+        while self.running:
+            try:
+                # Receive messages from the server
+                data, addr = self.client_socket.recvfrom(BUFFER_SIZE)
+                message = data.decode()
+
+                # Update the chat area with the new message
+                self.chat_area.config(state=tk.NORMAL)
+                self.chat_area.insert(tk.END, message + "\n")
+                self.chat_area.yview(tk.END)
+                self.chat_area.config(state=tk.DISABLED)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to receive message: {e}")
                 break
 
-    def send_message(self):
-        message = self.entry_message.get().strip()
-        if message:
-            self.client_socket.sendto(message.encode(), (self.server_ip, self.server_port))
-            self.entry_message.delete(0, tk.END)
-
-        # Disconnect if the message is "exit"
-        if message.lower() == "exit":
-            self.disconnect_from_server()
-
-    def update_chat_window(self, message):
-        self.chat_window.config(state='normal')
-        self.chat_window.insert(tk.END, message + "\n")
-        self.chat_window.config(state='disabled')
-        self.chat_window.see(tk.END)
-
-    def disconnect_from_server(self):
-        if self.client_socket:
+    def exit_chat(self):
+        try:
+            # Send 'exit' message to notify the server
             self.client_socket.sendto("exit".encode(), (self.server_ip, self.server_port))
+            self.running = False
             self.client_socket.close()
-            self.update_chat_window("You have disconnected.")
-            self.entry_message.config(state='disabled')
-            self.button_send.config(state='disabled')
-            self.button_disconnect.config(state='disabled')
-            self.button_connect.config(state='normal')
-
+            self.master.quit()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to exit: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = ChatClientGUI(root)
+    client_gui = ClientGUI(root)
     root.mainloop()
