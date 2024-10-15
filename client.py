@@ -1,42 +1,74 @@
 import socket
 import threading
+import tkinter as tk
+from tkinter import simpledialog, scrolledtext, messagebox
 
 SERVER_IP = "103.127.136.131"
 SERVER_PORT = 8000
 ADDR = (SERVER_IP, SERVER_PORT)
 
-def sender(client, usn):
-    while True:
-        msg = input(f"{usn}: ")
-        client.sendto(msg.encode(), ADDR)
-        if msg == "exit":
-            print("Exiting sender thread.")
-            client.close()
-            return
+class ChatClient:
+    def __init__(self, root):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.root = root
+        self.root.title("UDP Chat Client")
 
-def receiver(client):
-    while True:
-        try:
-            msg, _ = client.recvfrom(1024)
-            print(msg.decode())
-        except:
-            print("Receiver thread exiting.")
-            client.close()
-            return
+        # Create GUI components
+        self.chat_window = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, state='disabled', width=50, height=20)
+        self.chat_window.grid(row=0, column=0, padx=10, pady=10, columnspan=2)
 
-def run_client():
-    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
-    usn = input("Input username: ")
-    client.sendto(usn.encode(), ADDR)
+        self.entry_message = tk.Entry(self.root, width=40)
+        self.entry_message.grid(row=1, column=0, padx=10, pady=10)
+        self.entry_message.bind("<Return>", self.send_message)
 
-    send_thread = threading.Thread(target=sender, args=(client, usn))
-    receive_thread = threading.Thread(target=receiver, args=(client,))
+        self.send_button = tk.Button(self.root, text="Send", command=self.send_message)
+        self.send_button.grid(row=1, column=1, padx=10, pady=10)
 
-    send_thread.start()
-    receive_thread.start()
+        self.exit_button = tk.Button(self.root, text="Exit", command=self.exit_chat)
+        self.exit_button.grid(row=2, column=0, columnspan=2, pady=10)
 
-    send_thread.join()
-    receive_thread.join()
+        self.username = self.prompt_username()
+        if self.username:
+            self.client.sendto(self.username.encode(), ADDR)
+            threading.Thread(target=self.receive_message, daemon=True).start()
+        else:
+            self.root.quit()
 
-run_client()
+    def prompt_username(self):
+        username = simpledialog.askstring("Username", "Enter your username:")
+        return username
+
+    def send_message(self, event=None):
+        message = self.entry_message.get()
+        if message:
+            if message.lower() == "exit":
+                self.exit_chat()
+            else:
+                self.client.sendto(message.encode(), ADDR)
+                self.entry_message.delete(0, tk.END)
+
+    def receive_message(self):
+        while True:
+            try:
+                message, _ = self.client.recvfrom(1024)
+                self.display_message(message.decode())
+            except:
+                self.display_message("Connection closed.")
+                break
+
+    def display_message(self, message):
+        self.chat_window.config(state='normal')
+        self.chat_window.insert(tk.END, message + "\n")
+        self.chat_window.config(state='disabled')
+        self.chat_window.yview(tk.END)
+
+    def exit_chat(self):
+        self.client.sendto("exit".encode(), ADDR)
+        self.client.close()
+        self.root.quit()
+
+# Run the Tkinter GUI
+if __name__ == "__main__":
+    root = tk.Tk()
+    client_app = ChatClient(root)
+    root.mainloop()
