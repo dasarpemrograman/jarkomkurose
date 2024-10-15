@@ -7,8 +7,7 @@ def broadcast_message(server, message, clients, sender_addr=None):
     Broadcast a message to all connected clients except the sender.
     """
     for client in clients:
-        if client != sender_addr:
-            server.sendto(message.encode(), client)
+        server.sendto(message.encode(), client)
 
 def run_server():
     server_ip = "103.127.136.131"
