@@ -60,7 +60,7 @@ class ChatApp:
             self.close_connection()
 
     def close_connection(self):
-        self.client.sendto("exit".encode(),self.server_ip)
+        self.client.sendto("exit".encode(),(self.server_ip,self.server_port))
         self.client.close()
         self.master.quit()
 
