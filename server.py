@@ -1,6 +1,7 @@
 import socket
 
 BUFFER_SIZE = 1024
+PASSWORD = "inipassword"
 
 def broadcast_message(server, message, clients, sender_addr=None):
     """
@@ -33,12 +34,16 @@ def run_server():
 
             # Handle new client connections
             if addr not in clients:
+                userpass = data.split(':')
+                if userpass[1] != PASSWORD:
+                    server.sendto("Password invalid".encode(),addr)
+                    continue
                 clients.append(addr)
-                usernames.append(data)
-                print(f"New client: {data} from {addr[0]}")
+                usernames.append(userpass[0])
+                print(f"New client: {userpass[0]} from {addr[0]}")
 
                 # Broadcast the connection message to all other clients
-                connection_message = f"{data} has connected."
+                connection_message = f"{userpass[0]} has connected."
                 broadcast_message(server, connection_message, clients, addr)
 
             # Handle client disconnection

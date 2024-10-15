@@ -6,6 +6,7 @@ from tkinter import simpledialog, scrolledtext, messagebox
 SERVER_IP = "103.127.136.131"
 SERVER_PORT = 8000
 ADDR = (SERVER_IP, SERVER_PORT)
+PASSWORD = "inipassword"
 
 class ChatClient:
     def __init__(self, root):
@@ -29,8 +30,20 @@ class ChatClient:
 
         self.username = self.prompt_username()
         if self.username:
-            self.client.sendto(self.username.encode(), ADDR)
-            threading.Thread(target=self.receive_message, daemon=True).start()
+            # Send the username and password to the server
+            credentials = f"{self.username}:{PASSWORD}"
+            self.client.sendto(credentials.encode(), ADDR)
+
+            # Wait for the server's response about password validation
+            response, _ = self.client.recvfrom(1024)
+            response = response.decode()
+
+            if response == "Password invalid":
+                messagebox.showerror("Error", "Invalid password. Connection rejected by the server.")
+                self.root.quit()  # Exit the app if the password is invalid
+            else:
+                # Start receiving messages in a new thread if connected successfully
+                threading.Thread(target=self.receive_message, daemon=True).start()
         else:
             self.root.quit()
 
