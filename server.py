@@ -60,6 +60,7 @@ def run_server():
             else:
                 idx = clients.index(addr)
                 msg = f"{usernames[idx]} says: {data}"
+                print(msg)
                 broadcast_message(server, msg, clients, addr)
 
         except socket.error as e:
@@ -69,6 +70,6 @@ def run_server():
 
 
 try:
-        run_server()
+    run_server()
 except KeyboardInterrupt:
-        print("Server stopped.")
+    print("Server stopped.")
