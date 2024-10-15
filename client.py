@@ -26,7 +26,7 @@ class ChatApp:
         self.close_button = tk.Button(self.master, text="Close", command=self.close_connection)
         self.close_button.pack(pady=5)
 
-        self.server_ip = "192.168.18.39"
+        self.server_ip = "103.127.136.131"
         self.server_port = 8000
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.client.connect((self.server_ip, self.server_port))
@@ -60,6 +60,7 @@ class ChatApp:
             self.close_connection()
 
     def close_connection(self):
+        self.client.sendto("exit".encode(),self.server_ip)
         self.client.close()
         self.master.quit()
 

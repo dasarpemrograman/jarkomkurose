@@ -1,7 +1,7 @@
 import socket
 
 def run_server():
-    server_ip = "192.168.18.39"
+    server_ip = "103.127.136.131"
     server_port = 8000
 
     server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -14,6 +14,9 @@ def run_server():
         if addr not in clients:
             clients.append(addr)
             print(f"New client: {addr}")
+        elif data.decode() == "exit":
+            clients.remove(addr)
+            print(f"{addr} closed connection.")
         print(f"Received message from {addr}: {data.decode()}")
 
         for client in clients:
