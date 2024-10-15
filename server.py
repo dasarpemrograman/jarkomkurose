@@ -28,12 +28,13 @@ def run_server():
             if addr not in clients:
                 clients.append(addr)
                 usernames.append(data)
-                print(f"New client: {data} from {addr[0]}")
+                msg = f"New client: {data} from {addr[0]}"
+                print(msg)
 
             # Handle client disconnection
             elif data.lower() == "exit":
                 idx = clients.index(addr)
-                print(f"Client {usernames[idx]} disconnected.")
+                msg = f"Client {usernames[idx]} disconnected."
                 clients.pop(idx)
                 usernames.pop(idx)
 
@@ -41,7 +42,8 @@ def run_server():
             else:
                 idx = clients.index(addr)
                 msg = f"{usernames[idx]} says: {data}"
-                for client in clients:
+            
+            for client in clients:
                     if client != addr:
                         server.sendto(msg.encode(), client)
 
