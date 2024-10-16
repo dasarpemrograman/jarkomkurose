@@ -54,8 +54,8 @@ class Server:
 
     def quit(self, address):
         usnm = self.usn(address)
-        self.clients.remove(address)
         self.usernames.remove(self.usn(address))
+        self.clients.remove(address)
         self.chatall(f"{usnm} left the Gate of Steiner",address)
 
     def chatone(self, message:str, sender_addr):
