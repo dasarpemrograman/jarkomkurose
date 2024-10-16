@@ -1,94 +1,97 @@
 import socket
 import threading
 
-class ChatServer:
-    def __init__(self, host='127.0.0.1', port=12345, password='secret123'):
-        self.host = host
+class Server:
+    def __init__(self, ip, port, password):
+        self.ip = ip
         self.port = port
         self.password = password
-        self.clients = {}  # Store active clients as {address: username}
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
+        self.clients = []
+        self.usernames = []
+        self.server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+
     def start(self):
-        """Start the server and listen for incoming messages."""
-        self.server_socket.bind((self.host, self.port))
-        print(f"Server started on {self.host}:{self.port}")
+        self.server.bind((self.ip,self.port))
+        print(f"Server binded to {self.ip}:{self.port}")
         self.listen()
 
     def listen(self):
-        """Continuously listen for messages from clients."""
         while True:
-            data, client_address = self.server_socket.recvfrom(1024)
-            threading.Thread(target=self.handle_client, args=(data, client_address)).start()
+            data, address = self.server.recvfrom(1024)
+            threading.Thread(target=self.handle_client, args=(data, address)).start()
 
-    def handle_client(self, data, client_address):
-        """Handle incoming client messages."""
-        message = data.decode('utf-8')
-        print(f"Received message from {client_address}: {message}")
-        
-        if message.startswith("/join "):
-            self.handle_join(message, client_address)
-        elif client_address not in self.clients:
-            # Ignore other messages if the client hasn't joined
-            self.send_message("Error: You need to join first using /join <username> <password>", client_address)
-        elif message.startswith("/quit"):
-            self.handle_quit(client_address)
-        elif message.startswith("/msg "):
-            self.handle_private_message(message, client_address)
+    def handle_client(self, data, address):
+        msg : str = data.decode()
+        print(f"Received message from {address}: {msg}")
+
+        if msg.startswith("/join "):
+            self.join(msg,address)
+        elif address not in self.clients:
+            self.sendmsg("You have to join",address)
+        elif msg.startswith("/quit"):
+            self.quit(address)
+        elif msg.startswith("/msg "):
+            self.chatone(msg,address)
         else:
-            self.broadcast(f"{self.clients[client_address]}: {message}", client_address)
+            self.chatall(f"{self.usn(address)}: {msg}",address)
 
-    def handle_join(self, message, client_address):
-        """Process join requests from clients."""
-        parts = message.split(' ')
+    def join(self, message:str, address):
+        parts = message.split(" ")
         if len(parts) < 3:
-            self.send_message("Error: Invalid join command. Use /join <username> <password>", client_address)
+            self.sendmsg("Invalid join command",address)
             return
-
+        
         username = parts[1]
         password = parts[2]
 
         if password == self.password:
-            self.clients[client_address] = username
-            self.broadcast(f"{username} has joined the chat!", client_address)
-            self.send_message(f"Welcome to the chat, {username}!", client_address)
+            self.clients.append(address)
+            self.usernames.append(username)
+            self.chatall(f"Gacor, {username} join ges!",address)
+            self.sendmsg(f"Welcome, {username}!",address)
         else:
-            self.send_message("Error: Invalid password.", client_address)
+            self.sendmsg("You are not welcomed to the Steins;Gate",address)
 
-    def handle_quit(self, client_address):
-        """Handle client leaving the chat."""
-        username = self.clients.pop(client_address, None)
-        if username:
-            self.broadcast(f"{username} has left the chat.", client_address)
+    def quit(self, address):
+        usnm = self.usn(address)
+        self.clients.remove(address)
+        self.usernames.remove(self.usn(address))
+        self.chatall(f"{usnm} left the Gate of Steiner",address)
 
-    def handle_private_message(self, message, sender_address):
-        """Send private message to a specific user."""
-        parts = message.split(' ', 2)
+    def chatone(self, message:str, sender_addr):
+        parts = message.split(' ')
         if len(parts) < 3:
-            self.send_message("Error: Invalid private message format. Use /msg <username> <message>", sender_address)
+            self.sendmsg("Error",sender_addr)
             return
         
-        target_username = parts[1]
-        private_message = parts[2]
-        sender_username = self.clients[sender_address]
+        parts = message.split(' ',3)
+        username = parts[1]
+        msg = parts[2]
+        sender_usn = self.usn(sender_addr)
 
-        for client_address, username in self.clients.items():
-            if username == target_username:
-                self.send_message(f"Private from {sender_username}: {private_message}", client_address)
+        for tujuan in self.usernames:
+            if tujuan == username:
+                self.sendmsg(f"Pesan pribadi dari {sender_usn}: {msg}",self.adr(username))
                 return
-        
-        self.send_message(f"User {target_username} not found.", sender_address)
+            
+        self.sendmsg(f"User {username} tidak ditemukan.",sender_addr)
 
-    def broadcast(self, message, sender_address):
-        """Send a message to all clients except the sender."""
-        for client_address in self.clients:
-            if client_address != sender_address:
-                self.send_message(message, client_address)
+    def chatall(self, message, sdr_addr):
+        for tujuan in self.clients:
+            self.sendmsg(message,sdr_addr)
 
-    def send_message(self, message, client_address):
-        """Send a message to a specific client."""
-        self.server_socket.sendto(message.encode('utf-8'), client_address)
+    def sendmsg(self, msg, dest_addr):
+        msg = msg.encode()
+        self.server.sendto(msg,dest_addr)
+
+    def usn(self, adr) -> str:
+        idx = self.clients.index(adr)
+        return self.usernames[idx]
+    
+    def adr(self, usn) -> str:
+        idx = self.usernames.index(usn)
+        return self.clients[idx]
 
 if __name__ == "__main__":
-    server = ChatServer()
+    server = Server("103.127.136.131",8000,"steinsgate")
     server.start()
