@@ -2,7 +2,7 @@ import socket
 import threading
 
 class ChatServer:
-    def __init__(self, host='127.0.0.1', port=12345, password='secret123'):
+    def __init__(self, host='103.127.136.131', port=8000, password='secret123'):
         self.host = host
         self.port = port
         self.password = password

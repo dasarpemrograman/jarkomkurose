@@ -2,7 +2,7 @@ import socket
 import threading
 
 class ChatClient:
-    def __init__(self, server_host='127.0.0.1', server_port=12345):
+    def __init__(self, server_host='103.127.136.131', server_port=8000):
         self.server_host = server_host
         self.server_port = server_port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
