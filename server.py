@@ -23,7 +23,7 @@ class ChatServer:
 
     def handle_client(self, data, client_address):
         """Handle incoming client messages."""
-        message = data.decode('utf-8')
+        message = data.decode()
         print(f"Received message from {client_address}: {message}")
         
         if message.startswith("/join "):
@@ -83,7 +83,7 @@ class ChatServer:
 
     def send_message(self, message, client_address):
         """Send a message to a specific client."""
-        self.server_socket.sendto(message.encode('utf-8'), client_address)
+        self.server_socket.sendto(message.encode(), client_address)
 
 if __name__ == "__main__":
     server = ChatServer()

@@ -27,14 +27,14 @@ class ChatClient:
 
     def send_message(self, message):
         """Send a message to the server."""
-        self.client_socket.sendto(message.encode('utf-8'), (self.server_host, self.server_port))
+        self.client_socket.sendto(message.encode(), (self.server_host, self.server_port))
 
     def receive_messages(self):
         """Continuously receive messages from the server."""
         while True:
             try:
                 data, _ = self.client_socket.recvfrom(1024)
-                print(data.decode('utf-8'))
+                print(data.decode())
             except Exception as e:
                 print(f"Error receiving message: {e}")
                 break
