@@ -23,7 +23,6 @@ class UDPServer:
                     # Handle client messages
                     self.handle_client_message(client_address, message)
             except socket.timeout:
-                # Handle server-wide timeout or periodically check for inactivity
                 print("Server timed out waiting for new messages.")
                 continue
             except Exception as e:
@@ -43,7 +42,7 @@ class UDPServer:
                 username = username_data.decode().strip()
 
             # Register the client
-            self.clients[client_address] = {'username': username, 'sequence_number': -1}
+            self.clients[client_address] = {'username': username, 'sequence_number': -1}  # Start with -1 as no messages are received yet
             self.usernames_to_addresses[username] = client_address
             self.server_socket.sendto("Username accepted. Welcome!".encode(), client_address)
             print(f"New client connected: {username} from {client_address}")
@@ -62,13 +61,14 @@ class UDPServer:
 
             # Check if the message is in order
             if sequence_number == client_info['sequence_number'] + 1:
-                client_info['sequence_number'] = sequence_number
+                client_info['sequence_number'] = sequence_number  # Update the expected sequence number
                 self.handle_message(client_info['username'], client_address, msg.strip())
-                # Send ACK
+                # Send ACK for the correct sequence number
                 self.server_socket.sendto(f"ACK:{sequence_number}".encode(), client_address)
             else:
-                print(f"Out-of-order message from {client_address} (Seq: {sequence_number}).")
-                self.server_socket.sendto(f"Warning: Out-of-order message. Expected {client_info['sequence_number'] + 1}".encode(), client_address)
+                # Notify the client of the expected sequence number if the message is out of order
+                print(f"Out-of-order message from {client_address} (Seq: {sequence_number}). Expected Seq: {client_info['sequence_number'] + 1}")
+                self.server_socket.sendto(f"ERROR: Out-of-order. Expected Seq: {client_info['sequence_number'] + 1}".encode(), client_address)
         except ValueError:
             print(f"Malformed message received from {client_address}: {message}")
 

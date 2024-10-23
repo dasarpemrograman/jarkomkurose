@@ -6,7 +6,7 @@ class UDPClient:
         self.server_address = (host, port)
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.client_socket.settimeout(5.0)  # 5 seconds timeout for ACKs or responses
-        self.sequence_number = 0
+        self.sequence_number = 0  # Start sequence at 0
         self.username = None
         self.max_retries = max_retries  # Maximum number of retries for unacknowledged messages
 
@@ -72,17 +72,24 @@ class UDPClient:
             self.client_socket.sendto(message_with_seq.encode(), self.server_address)
 
             try:
-                # Wait for ACK
-                ack, _ = self.client_socket.recvfrom(1024)
-                ack_message = ack.decode()
-                if ack_message.startswith("ACK:"):
-                    ack_sequence_number = int(ack_message.split(":")[1])
+                # Wait for ACK or ERROR for out-of-order
+                response, _ = self.client_socket.recvfrom(1024)
+                response_message = response.decode()
+                
+                if response_message.startswith("ACK:"):
+                    ack_sequence_number = int(response_message.split(":")[1])
                     if ack_sequence_number == self.sequence_number:
                         self.sequence_number += 1
                         print(f"Message sent successfully with Seq: {self.sequence_number}")
                         return
+                elif response_message.startswith("ERROR:"):
+                    expected_seq = int(response_message.split(":")[2].strip())
+                    print(f"Server reported out-of-order. Expected Seq: {expected_seq}")
+                    self.sequence_number = expected_seq  # Reset sequence number to expected
+                    message_with_seq = f"{self.sequence_number}:{message}"
+                    retries = 0  # Reset retry counter after sequence adjustment
             except socket.timeout:
-                print(f"No ACK received for message. Retrying ({retries+1}/{self.max_retries})...")
+                print(f"No response received for message. Retrying ({retries+1}/{self.max_retries})...")
                 retries += 1
         
         print(f"Failed to send message after {self.max_retries} attempts. Giving up.")
