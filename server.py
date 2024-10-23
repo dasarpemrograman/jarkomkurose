@@ -20,7 +20,7 @@ class UDPServer:
                     self.handle_new_connection(client_address, message)
                 else:
                     # Handle client messages
-                    self.handle_client_message(client_address, message)
+                    self.handle_message(client_address, message)
             except Exception as e:
                 print(f"Error in server: {e}")
 
