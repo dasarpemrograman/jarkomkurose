@@ -2,9 +2,10 @@ import socket
 import threading
 
 class UDPServer:
-    def __init__(self, host='udp.alfikrona.com', port=9000, password="securepassword"):
+    def __init__(self, host='udp.alfikrona.com', port=9000, password="securepassword", timeout_duration=60):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.bind((host, port))
+        self.server_socket.settimeout(timeout_duration)  # Set timeout for server socket
         self.password = password
         self.clients = {}  # {client_address: {'username': <username>, 'sequence_number': <seq_num>}}
         self.usernames_to_addresses = {}  # {username: client_address}
@@ -21,6 +22,10 @@ class UDPServer:
                 else:
                     # Handle client messages
                     self.handle_client_message(client_address, message)
+            except socket.timeout:
+                # Handle server-wide timeout or periodically check for inactivity
+                print("Server timed out waiting for new messages.")
+                continue
             except Exception as e:
                 print(f"Error in server: {e}")
 
@@ -114,6 +119,10 @@ class UDPServer:
                 data, _ = self.server_socket.recvfrom(1024)
                 message = data.decode()
                 self.handle_client_message(client_address, message)
+            except socket.timeout:
+                print(f"Client {client_info['username']} timed out. Removing client.")
+                self.remove_client(client_address)
+                break
             except Exception as e:
                 # Handle client disconnection
                 print(f"Client {client_info['username']} disconnected.")
