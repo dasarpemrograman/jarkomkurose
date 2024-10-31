@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 class ReliableUDPClient:
     def __init__(self, host, port):
@@ -10,6 +11,8 @@ class ReliableUDPClient:
         self.running = True  # Control flag for threads
         self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
         self.receive_thread.start()
+        self.connected = False
+        self.name = ""
 
     def message_segmentation(self, message):
         # Check if the message is longer than 512 bytes
@@ -40,7 +43,7 @@ class ReliableUDPClient:
                 self.client_socket.sendto(msg_with_seq, self.server_address)
 
                 # Wait for acknowledgment
-                self.client_socket.settimeout(2)  # Timeout for waiting for an ACK
+                self.client_socket.settimeout(3)  # Timeout for waiting for an ACK
                 ack, _ = self.client_socket.recvfrom(1024)
                 ack_num = int(ack.decode().split()[1])  # Get the acknowledgment number
                 print(f"Received ACK: {ack.decode()}")
@@ -49,6 +52,7 @@ class ReliableUDPClient:
                     break  # Exit loop if ACK matches the sent seq_num
             except socket.timeout:
                 print("No ACK received. Resending message...")
+                time.sleep(2)
             except ValueError as ve:
                 print(f"Error decoding ACK: {ve}")
             except OSError as oe:
@@ -71,8 +75,8 @@ class ReliableUDPClient:
                 message = data.decode()
                 if message.startswith("ACK"):
                     continue  # Skip printing ACKs
-                print(f"\nReceived: {message}")
-                print("Enter a message to send (or 'exit' to quit): ", end='', flush=True)
+                print(f"\n{message}")
+                print("> ", end='', flush=True)
             except socket.timeout:
                 continue  # Just skip if a timeout occurs
             except Exception as e:
@@ -80,14 +84,30 @@ class ReliableUDPClient:
                 break
 
     def start(self):
-        while self.running:
-            user_input = input("Enter a message to send (or 'exit' to quit): ")
-            if user_input.lower() == 'exit':
-                self.running = False
-                break
-            self.message_segmentation(user_input)
+        while not self.connected:
+            username = input("What is your name: ")
+            password = input("What is the password: ")
+            initial_message = f"SYN {username} {password}".encode()
+            self.client_socket.sendto(initial_message, self.server_address)
+            try:
+                self.client_socket.settimeout(2)
+                data, _ = self.client_socket.recvfrom(1024)
+                if data.decode() == "SYN":
+                    self.connected = True
+                    self.name = username
+                    print("connected to server!")
+                elif data.decode() == "INCORRECT":
+                    print("incorrect password")
+                elif data.decode() == "TAKEN":
+                    print("username is already taken")
+            except socket.timeout:
+                print("the server you are trying to reach is currently offline")
 
-        self.stop()
+        while self.running:
+            user_input = input("> ")
+            self.message_segmentation(user_input)
+            if user_input.lower() == 'exit':
+                self.stop()
 
 if __name__ == "__main__":
     client = ReliableUDPClient('localhost', 12346)
