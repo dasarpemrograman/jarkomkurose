@@ -3,14 +3,15 @@ import threading
 import time
 
 class ReliableUDPClient:
-    def __init__(self, host, port):
-        self.server_address = (host, port)
+    def __init__(self):
+        self.server_address = ("",0)
         self.seq_num = 0  # Start with sequence number 1
         self.lock = threading.Lock()  # Lock to manage access to the sequence number
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.running = True  # Control flag for threads
         self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
         self.receive_thread.start()
+        self.accepted = False
         self.connected = False
         self.name = ""
 
@@ -62,10 +63,6 @@ class ReliableUDPClient:
         # Increment the sequence number for the next message or chunk
         with self.lock:
             self.seq_num += 1
-
-    def stop(self):
-        self.running = False
-        self.client_socket.close()
     
     def receive_messages(self):
         while self.running:
@@ -85,30 +82,58 @@ class ReliableUDPClient:
 
     def start(self):
         while not self.connected:
-            username = input("What is your name: ")
-            password = input("What is the password: ")
-            initial_message = f"SYN {username} {password}".encode()
-            self.client_socket.sendto(initial_message, self.server_address)
+            ip = input("Type your desired IP Address: ")
+            port = input("Type the desired port: ")
+            self.server_address = (ip,int(port))
+            
+            self.client_socket.sendto("SYN".encode(),self.server_address)
             try:
                 self.client_socket.settimeout(2)
                 data, _ = self.client_socket.recvfrom(1024)
                 if data.decode() == "SYN":
                     self.connected = True
+            except socket.timeout:
+                print("the server you are trying to reach is currently offline")
+
+        while not self.accepted:
+            username = input("What is your name: ")
+            password = input("What is the password: ")
+            initial_message = f"ACC {username} {password}".encode()
+            self.client_socket.sendto(initial_message, self.server_address)
+            try:
+                self.client_socket.settimeout(2)
+                data, _ = self.client_socket.recvfrom(1024)
+                if data.decode() == "ACC":
+                    self.accepted = True
                     self.name = username
-                    print("connected to server!")
+                    print("Welcome to SERN (Socket Emulation for Reliable Networking)")
                 elif data.decode() == "INCORRECT":
                     print("incorrect password")
                 elif data.decode() == "TAKEN":
                     print("username is already taken")
             except socket.timeout:
-                print("the server you are trying to reach is currently offline")
+                print("server is not responding")
 
         while self.running:
             user_input = input("> ")
-            self.message_segmentation(user_input)
             if user_input.lower() == 'exit':
-                self.stop()
+                while True:
+                    self.client_socket.sendto("FIN".encode(),self.server_address)
+                    try:
+                        self.client_socket.settimeout(2)
+                        data, _ = self.client_socket.recvfrom(1024)
+                        if data.decode() == "FIN":
+                            print("Thank you for using SERN, may goodness comes to your life in every alternative timelines.")
+                            self.running = False
+                            break
+                    except socket.timeout:
+                        print("server is not responding")
+
+                    self.running = False
+            else:
+                self.message_segmentation(user_input)
+                    
 
 if __name__ == "__main__":
-    client = ReliableUDPClient('localhost', 12346)
+    client = ReliableUDPClient()
     client.start()

@@ -1,6 +1,5 @@
 import socket
 import threading
-import time
 
 class ReliableUDPServer:
     def __init__(self, host, port):
@@ -22,13 +21,15 @@ class ReliableUDPServer:
         while True:
             data, addr = self.server_socket.recvfrom(1024)
             with self.lock:
-                if data.decode().startswith("SYN"):
+                if data.decode() == "SYN":
+                    self.server_socket.sendto("SYN".encode(),addr)
+                elif data.decode().startswith("ACC"):
                     if addr not in self.clients:
                         parts = data.decode().split()
                         username = parts[1]
                         password = parts[2]
                         if password == self.password and self.is_name_unique(username):
-                            self.server_socket.sendto("SYN".encode(),addr)
+                            self.server_socket.sendto("ACC".encode(),addr)
                             self.clients[addr] = [0,username]  # Initialize client's expected seq number
                             self.received_data[addr] = ""  # Initialize received data for this client
                         elif password != self.password:
@@ -36,7 +37,9 @@ class ReliableUDPServer:
                         else:
                             self.server_socket.sendto("TAKEN".encode(),addr)
                     else:
-                        self.server_socket.sendto("SYN".encode(),addr)
+                        self.server_socket.sendto("ACC".encode(),addr)
+                elif data.decode() == "FIN":
+                    self.server_socket.sendto("FIN".encode(),addr)
                 else:
                     threading.Thread(target=self.handle_client, args=(data, addr), daemon=True).start()
                     _, message = self.decode_message(data)
@@ -85,7 +88,6 @@ class ReliableUDPServer:
                     print(f"Unexpected sequence number from {addr}: (Seq: {seq_num}). Expected: {self.clients[addr][0]}")
                     ack_msg = f"ACK {self.clients[addr][0]}".encode()
                     self.server_socket.sendto(ack_msg, addr)
-                    time.sleep(2)
 
         except ValueError as ve:
             print(f"Error decoding message from {addr}: {ve}. Data received: {data.decode()}")
