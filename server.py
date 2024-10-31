@@ -70,5 +70,5 @@ class ReliableUDPServer:
         return seq_num, msg
 
 if __name__ == "__main__":
-    server = ReliableUDPServer('localhost', 12345)
+    server = ReliableUDPServer('localhost', 12346)
     server.start()

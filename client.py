@@ -11,26 +11,26 @@ class ReliableUDPClient:
         self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
         self.receive_thread.start()
 
-    def send_message(self, message):
+    def message_segmentation(self, message):
         # Check if the message is longer than 512 bytes
         chunk_size = 512
         if len(message) > chunk_size:
             # Send a special code to indicate long message
-            self.send_single_message("LONG_MESSAGE")
+            self.send_message("LONG_MESSAGE")
 
             # Send the message in chunks
             for i in range(0, len(message), chunk_size):
                 chunk = message[i:i + chunk_size]
                 print(f"Sending chunk: {chunk}")
-                self.send_single_message(chunk)
+                self.send_message(chunk)
 
             # Send a special code to indicate the end of the message
-            self.send_single_message("END_MESSAGE")
+            self.send_message("END_MESSAGE")
         else:
             # For regular messages
-            self.send_single_message(message)
+            self.send_message(message)
 
-    def send_single_message(self, message):
+    def send_message(self, message):
         while True:
             msg_with_seq = f"{self.seq_num} {message}".encode()
             print(f"Sending: {msg_with_seq.decode()}")
@@ -85,10 +85,10 @@ class ReliableUDPClient:
             if user_input.lower() == 'exit':
                 self.running = False
                 break
-            self.send_message(user_input)
+            self.message_segmentation(user_input)
 
         self.stop()
 
 if __name__ == "__main__":
-    client = ReliableUDPClient('localhost', 12345)
+    client = ReliableUDPClient('localhost', 12346)
     client.start()
