@@ -131,8 +131,8 @@ class ReliableUDPClient:
 
                     self.running = False
             else:
-                self.message_segmentation(user_input)
-                    
+                if user_input and not user_input.isspace():
+                    self.message_segmentation(user_input)
 
 if __name__ == "__main__":
     client = ReliableUDPClient()
