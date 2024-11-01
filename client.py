@@ -1,71 +1,123 @@
 import socket
 import threading
-import tkinter as tk
-from tkinter import scrolledtext
 
-class ChatApp:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("UDP Chat Client")
+class Client:
+    def __init__(self):
+        self.server_address = ("",0)
+        self.seq_num = 0 
+        self.lock = threading.Lock() 
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.running = True
+        self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
+        self.receive_thread.start()
+        self.accepted = False
+        self.connected = False
+        self.name = ""
 
-        # Display for messages
-        self.chat_display = scrolledtext.ScrolledText(self.master, wrap=tk.WORD, height=15, width=50)
-        self.chat_display.pack(padx=10, pady=10)
-        self.chat_display.config(state=tk.DISABLED)
+    def message_segmentation(self, message):
+        chunk_size = 512
+        if len(message) > chunk_size:
+            self.send_message("LONG_MESSAGE")
+            for i in range(0, len(message), chunk_size):
+                chunk = message[i:i + chunk_size]
+                print(f"Sending chunk: {chunk}")
+                self.send_message(chunk)
+            self.send_message("END_MESSAGE")
+        else:
+            self.send_message(message)
 
-        # Input field for sending messages
-        self.message_entry = tk.Entry(self.master, width=40)
-        self.message_entry.pack(padx=10, pady=5)
-        self.message_entry.bind("<Return>", self.send_message)
-
-        # Send button
-        self.send_button = tk.Button(self.master, text="Send", command=self.send_message)
-        self.send_button.pack(pady=5)
-
-        # Close button
-        self.close_button = tk.Button(self.master, text="Close", command=self.close_connection)
-        self.close_button.pack(pady=5)
-
-        self.server_ip = "103.127.136.131"
-        self.server_port = 8000
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.client.connect((self.server_ip, self.server_port))
-
-        # Start the receiving thread
-        self.receiver_thread = threading.Thread(target=self.receive_message)
-        self.receiver_thread.daemon = True
-        self.receiver_thread.start()
-
-    def receive_message(self):
+    def send_message(self, message):
         while True:
+            msg_with_seq = f"{self.seq_num} {message}".encode()
+            print(f"Sending: {msg_with_seq.decode()}")
             try:
-                msg, addr = self.client.recvfrom(1024)
-                self.chat_display.config(state=tk.NORMAL)
-                self.chat_display.insert(tk.END, f"From {addr}: {msg.decode()}\n")
-                self.chat_display.config(state=tk.DISABLED)
-                self.chat_display.yview(tk.END)
-            except:
+                self.client_socket.sendto(msg_with_seq, self.server_address)
+                self.client_socket.settimeout(0.5) 
+                ack, _ = self.client_socket.recvfrom(1024)
+                ack_num = int(ack.decode().split()[1])
+                print(f"Received ACK: {ack.decode()}")
+                if ack_num == self.seq_num + 1:
+                    break 
+            except socket.timeout:
+                print("No ACK received. Resending message...")
+            except ValueError as ve:
+                print(f"Error decoding ACK: {ve}")
+            except OSError as oe:
+                print(f"Socket error: {oe}")
+                break 
+        with self.lock:
+            self.seq_num += 1
+    
+    def receive_messages(self):
+        while self.running:
+            try:
+                self.client_socket.settimeout(0.5)
+                data, _ = self.client_socket.recvfrom(1024)
+                message = data.decode()
+                if message.startswith("ACK"):
+                    continue 
+                print(f"\n{message}")
+                print("> ", end='', flush=True)
+            except socket.timeout:
+                continue 
+            except Exception as e:
+                print(f"Error receiving message: {e}")
                 break
 
-    def send_message(self, event=None):
-        msg = self.message_entry.get()
-        if msg:
-            self.client.sendto(msg.encode(), (self.server_ip, self.server_port))
-            self.chat_display.config(state=tk.NORMAL)
-            self.chat_display.insert(tk.END, f"You: {msg}\n")
-            self.chat_display.config(state=tk.DISABLED)
-            self.chat_display.yview(tk.END)
-            self.message_entry.delete(0, tk.END)
-        if msg == "exit":
-            self.close_connection()
+    def start(self):
+        while not self.connected:
+            ip = input("Type your desired IP Address: ")
+            port = input("Type the desired port: ")
+            self.server_address = (ip,int(port))
+            
+            self.client_socket.sendto("SYN".encode(),self.server_address)
+            try:
+                self.client_socket.settimeout(0.5)
+                data, _ = self.client_socket.recvfrom(1024)
+                if data.decode() == "SYN":
+                    self.connected = True
+            except socket.timeout:
+                print("the server you are trying to reach is currently offline")
 
-    def close_connection(self):
-        self.client.sendto("exit".encode(),self.server_ip)
-        self.client.close()
-        self.master.quit()
+        while not self.accepted:
+            username = input("What is your name: ")
+            password = input("What is the password: ")
+            initial_message = f"ACC {password} {username}".encode()
+            self.client_socket.sendto(initial_message, self.server_address)
+            try:
+                self.client_socket.settimeout(0.5)
+                data, _ = self.client_socket.recvfrom(1024)
+                if data.decode() == "ACC":
+                    self.accepted = True
+                    self.name = username
+                    print("Welcome to SERN (Socket Emulation for Reliable Networking)")
+                elif data.decode() == "INCORRECT":
+                    print("incorrect password")
+                elif data.decode() == "TAKEN":
+                    print("username is already taken")
+            except socket.timeout:
+                print("server is not responding")
 
-# Main application
+        while self.running:
+            user_input = input("> ")
+            if user_input.lower() == 'exit':
+                while True:
+                    self.client_socket.sendto("FIN".encode(),self.server_address)
+                    try:
+                        self.client_socket.settimeout(0.5)
+                        data, _ = self.client_socket.recvfrom(1024)
+                        if data.decode() == "FIN":
+                            print("Thank you for using SERN, may goodness comes to your life in every alternative timelines.")
+                            self.running = False
+                            break
+                    except socket.timeout:
+                        print("server is not responding")
+
+                    self.running = False
+            else:
+                if user_input and not user_input.isspace():
+                    self.message_segmentation(user_input)
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = ChatApp(root)
-    root.mainloop()
+    client = Client()
+    client.start()
