@@ -101,5 +101,5 @@ class ReliableUDPServer:
         return seq_num, msg
 
 if __name__ == "__main__":
-    server = ReliableUDPServer('localhost', 12346)
+    server = ReliableUDPServer('udp.alfikrona.com', 8001)
     server.start()
