@@ -16,7 +16,7 @@ class ReliableUDPServer:
             if client_info[1] == new_name:  # check index 1 which contains the name
                 return False
         return True
-
+        
     def start(self):
         while True:
             data, addr = self.server_socket.recvfrom(1024)
@@ -42,9 +42,6 @@ class ReliableUDPServer:
                     self.server_socket.sendto("FIN".encode(),addr)
                 else:
                     threading.Thread(target=self.handle_client, args=(data, addr), daemon=True).start()
-                    _, message = self.decode_message(data)
-                    if message != "exit":
-                        threading.Thread(target=self.broadcast, args=(message.encode(),addr), daemon=True).start()
 
     def broadcast(self, message, sender_addr):
         with self.lock:
@@ -83,6 +80,7 @@ class ReliableUDPServer:
                     # Send acknowledgment back to the client
                     ack_msg = f"ACK {self.clients[addr][0]}".encode()
                     self.server_socket.sendto(ack_msg, addr)
+                    threading.Thread(target=self.broadcast, args=(msg.encode(),addr), daemon=True).start()
 
                 else:
                     print(f"Unexpected sequence number from {addr}: (Seq: {seq_num}). Expected: {self.clients[addr][0]}")
@@ -101,5 +99,5 @@ class ReliableUDPServer:
         return seq_num, msg
 
 if __name__ == "__main__":
-    server = ReliableUDPServer('udp.alfikrona.com', 8001)
+    server = ReliableUDPServer('172.20.10.2', 8010)
     server.start()
