@@ -1,19 +1,19 @@
 import socket
 import threading
 
-class ReliableUDPServer:
+class Server:
     def __init__(self, host, port):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.bind((host, port))
         print(f"Server is running on {host}:{port}")
-        self.clients = {}  # Store client addresses and their expected seq numbers
-        self.received_data = {}  # Store received data for each client
-        self.lock = threading.Lock()  # Add a lock for thread safety
+        self.clients = {} 
+        self.received_data = {} 
+        self.lock = threading.Lock() 
         self.password = "elpsycongroo"
 
     def is_name_unique(self, new_name):
         for client_info in self.clients.values():
-            if client_info[1] == new_name:  # check index 1 which contains the name
+            if client_info[1] == new_name: 
                 return False
         return True
         
@@ -30,8 +30,9 @@ class ReliableUDPServer:
                         password = parts[2]
                         if password == self.password and self.is_name_unique(username):
                             self.server_socket.sendto("ACC".encode(),addr)
-                            self.clients[addr] = [0,username]  # Initialize client's expected seq number
-                            self.received_data[addr] = ""  # Initialize received data for this client
+                            self.clients[addr] = [0,username] 
+                            self.received_data[addr] = "" 
+                            threading.Thread(target=self.broadcast, args=(f"*{username} has joined the conversation*".encode(),addr), daemon=True).start()
                         elif password != self.password:
                             self.server_socket.sendto("INCORRECT".encode(),addr)
                         else:
@@ -46,7 +47,7 @@ class ReliableUDPServer:
     def broadcast(self, message, sender_addr):
         with self.lock:
             for client in self.clients:
-                if client != sender_addr:  # Don't send the message back to the sender
+                if client != sender_addr: 
                     self.server_socket.sendto(f"{self.clients[sender_addr][1]} : {message.decode()}".encode(), client)
                     print(f"Broadcasted to {client}: {message.decode()}")
 
@@ -54,30 +55,24 @@ class ReliableUDPServer:
         try:
             seq_num, msg = self.decode_message(data)
             with self.lock:
-                # Check if this is the expected sequence number for this client
                 if seq_num == self.clients[addr][0]:
-                    # Process the received message
                     if msg == "exit":
-                        # Remove client from dictionaries and acknowledge their exit
                         self.clients[addr][0] += 1
                         ack_msg = f"ACK {self.clients[addr][0]}".encode()
                         self.server_socket.sendto(ack_msg, addr)
-                        # Clean up client data
                         del self.clients[addr]
                         del self.received_data[addr]
                         return
                     if msg == "END_MESSAGE":
-                        self.received_data[addr] = ""  # Reset for the next message
+                        self.received_data[addr] = "" 
                     elif msg == "LONG_MESSAGE":
                         print(f"Receiving long message from {addr} (Seq: {seq_num})")
                     else:
                         print(f"Received from {addr}: {msg} (Seq: {seq_num})")
-                        self.received_data[addr] += msg  # Accumulate chunks
+                        self.received_data[addr] += msg 
 
-                    # Increment the expected sequence number for this client
                     self.clients[addr][0] += 1
 
-                    # Send acknowledgment back to the client
                     ack_msg = f"ACK {self.clients[addr][0]}".encode()
                     self.server_socket.sendto(ack_msg, addr)
                     threading.Thread(target=self.broadcast, args=(msg.encode(),addr), daemon=True).start()
@@ -99,5 +94,5 @@ class ReliableUDPServer:
         return seq_num, msg
 
 if __name__ == "__main__":
-    server = ReliableUDPServer('172.20.10.2', 8010)
+    server = Server('172.20.10.2', 8010)
     server.start()
