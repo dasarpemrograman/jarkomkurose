@@ -25,9 +25,9 @@ class Server:
                     self.server_socket.sendto("SYN".encode(),addr)
                 elif data.decode().startswith("ACC"):
                     if addr not in self.clients:
-                        parts = data.decode().split()
-                        username = parts[1]
-                        password = parts[2]
+                        parts = data.decode().split(maxsplit=2)
+                        username = parts[2]
+                        password = parts[1]
                         if password == self.password and self.is_name_unique(username):
                             self.server_socket.sendto("ACC".encode(),addr)
                             self.clients[addr] = [0,username] 
@@ -41,6 +41,8 @@ class Server:
                         self.server_socket.sendto("ACC".encode(),addr)
                 elif data.decode() == "FIN":
                     self.server_socket.sendto("FIN".encode(),addr)
+                    del self.clients[addr]
+                    del self.received_data[addr]
                 else:
                     threading.Thread(target=self.handle_client, args=(data, addr), daemon=True).start()
 
@@ -56,13 +58,6 @@ class Server:
             seq_num, msg = self.decode_message(data)
             with self.lock:
                 if seq_num == self.clients[addr][0]:
-                    if msg == "exit":
-                        self.clients[addr][0] += 1
-                        ack_msg = f"ACK {self.clients[addr][0]}".encode()
-                        self.server_socket.sendto(ack_msg, addr)
-                        del self.clients[addr]
-                        del self.received_data[addr]
-                        return
                     if msg == "END_MESSAGE":
                         self.received_data[addr] = "" 
                     elif msg == "LONG_MESSAGE":
@@ -94,5 +89,5 @@ class Server:
         return seq_num, msg
 
 if __name__ == "__main__":
-    server = Server('172.20.10.2', 8010)
+    server = Server('172.20.10.2', 12346) #change to your local network
     server.start()

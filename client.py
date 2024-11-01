@@ -33,7 +33,7 @@ class Client:
             print(f"Sending: {msg_with_seq.decode()}")
             try:
                 self.client_socket.sendto(msg_with_seq, self.server_address)
-                self.client_socket.settimeout(3) 
+                self.client_socket.settimeout(0.5) 
                 ack, _ = self.client_socket.recvfrom(1024)
                 ack_num = int(ack.decode().split()[1])
                 print(f"Received ACK: {ack.decode()}")
@@ -41,7 +41,6 @@ class Client:
                     break 
             except socket.timeout:
                 print("No ACK received. Resending message...")
-                time.sleep(2)
             except ValueError as ve:
                 print(f"Error decoding ACK: {ve}")
             except OSError as oe:
@@ -53,7 +52,7 @@ class Client:
     def receive_messages(self):
         while self.running:
             try:
-                self.client_socket.settimeout(1)
+                self.client_socket.settimeout(0.5)
                 data, _ = self.client_socket.recvfrom(1024)
                 message = data.decode()
                 if message.startswith("ACK"):
@@ -74,7 +73,7 @@ class Client:
             
             self.client_socket.sendto("SYN".encode(),self.server_address)
             try:
-                self.client_socket.settimeout(2)
+                self.client_socket.settimeout(0.5)
                 data, _ = self.client_socket.recvfrom(1024)
                 if data.decode() == "SYN":
                     self.connected = True
@@ -84,10 +83,10 @@ class Client:
         while not self.accepted:
             username = input("What is your name: ")
             password = input("What is the password: ")
-            initial_message = f"ACC {username} {password}".encode()
+            initial_message = f"ACC {password} {username}".encode()
             self.client_socket.sendto(initial_message, self.server_address)
             try:
-                self.client_socket.settimeout(2)
+                self.client_socket.settimeout(0.5)
                 data, _ = self.client_socket.recvfrom(1024)
                 if data.decode() == "ACC":
                     self.accepted = True
@@ -106,7 +105,7 @@ class Client:
                 while True:
                     self.client_socket.sendto("FIN".encode(),self.server_address)
                     try:
-                        self.client_socket.settimeout(2)
+                        self.client_socket.settimeout(0.5)
                         data, _ = self.client_socket.recvfrom(1024)
                         if data.decode() == "FIN":
                             print("Thank you for using SERN, may goodness comes to your life in every alternative timelines.")
